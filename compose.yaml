@@ -1,0 +1,67 @@
+name: jg-server
+
+services:
+  db_dev:
+    image: postgres:16-alpine
+    container_name: jg-postgresdb-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jthan-dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Keepitsimple2209!}
+      POSTGRES_DB: ${POSTGRES_DB:-jg-portfolio}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - jg_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-jthan-dev} -d $${POSTGRES_DB:-jg_portfolio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  syncthing:
+    image: syncthing/syncthing
+    container_name: jg-syncthing
+    restart: unless-stopped
+    ports:
+      - "8384:8384"     # WebUI
+      - "22000:22000"   # Sync traffic
+      - "21027:21027"   # Local discovery
+    user: "1000:1000"
+    volumes: 
+      - ${SYNCTHING_USER_DIR}/config:/var/syncthing/config
+      - ${SYNCTHING_WORKING_DIR}:/var/syncthing/
+  
+  stirling-pdf:
+    image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
+    container_name: stirling-pdf
+    ports:
+      - '8080:8080'
+    volumes:
+      - ${STIRLING_DATA_DIR}:/var/configs
+    restart: unless-stopped
+
+  llama-server:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-server
+    ports:
+      - "8081:8080"
+    volumes:
+      - ${LLAMA_MODELS_DIR}:/llama-setup/models
+    environment:
+      # Automatically download and run from HuggingFace if not using local volumes
+      - LLAMA_ARG_MODEL=/llama-setup/models/qwen3.5-4b-diktat-de-ch-q8_0.gguf
+      - LLAMA_ARG_N_GPU_LAYERS=20
+      - LLAMA_ARG_CTX_SIZE=16384
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  jg_pgdata:
