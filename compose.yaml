@@ -63,5 +63,20 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
+  nextcloud-aio-mastercontainer:
+   image: ghcr.io/nextcloud-releases/all-in-one:latest
+   container_name: nextcloud-aio-mastercontainer
+   restart: always
+   ports:
+    - "80:80"
+    - "8082:8080"
+    - "8443:8443"
+   volumes:
+    - ${NEXTCLOUD_AIO_CONFIG_DIR}:/mnt/docker-aio-config
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+   environment:
+    APACHE_PORT: 11000
+    stop_grace_period: 30s
 volumes:
+  nextcloud_aio_mastercontainer:
   jg_pgdata:
