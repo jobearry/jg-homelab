@@ -77,7 +77,17 @@ services:
    environment:
     APACHE_PORT: 11000
     stop_grace_period: 30s
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: cloudbeaver
+    ports:
+      - "8978:8978"
+    volumes:
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
+
 volumes:
   nextcloud_aio_mastercontainer:
     name: nextcloud_aio_mastercontainer
   jg_pgdata:
+  cloudbeaver_data:
