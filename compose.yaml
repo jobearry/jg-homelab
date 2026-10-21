@@ -63,6 +63,31 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
+  llama-server-coder:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-server-coder
+    ports:
+      - "8083:8080"
+    volumes:
+      - ${LLAMA_MODELS_DIR}:/llama-setup/models
+    environment:
+      - LLAMA_ARG_MODEL=/llama-setup/models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+      - LLAMA_ARG_N_GPU_LAYERS=99
+      - LLAMA_ARG_CTX_SIZE=12288
+      # quantized KV cache keeps a 4B model inside 4 GB of VRAM
+      - LLAMA_ARG_CACHE_TYPE_K=q8_0
+      - LLAMA_ARG_CACHE_TYPE_V=q8_0
+      # required for OpenAI-style tool calling
+      - LLAMA_ARG_JINJA=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
   nextcloud-aio-mastercontainer:
    image: ghcr.io/nextcloud-releases/all-in-one:latest
    container_name: nextcloud-aio-mastercontainer
