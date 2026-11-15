@@ -1,5 +1,9 @@
 name: jg-server
 
+# Homelab stack for this host.
+# GPU inference lives elsewhere: llamacpp-rx580.yaml (this host, RX 580 / Vulkan)
+# and compose.nvidia.yaml (the NVIDIA device).
+
 services:
   db_dev:
     image: postgres:16-alpine
@@ -7,7 +11,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-jthan-dev}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Keepitsimple2209!}
+      # no default: the password lives only in .env, never in the repo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-jg-portfolio}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
@@ -25,14 +30,15 @@ services:
     container_name: jg-syncthing
     restart: unless-stopped
     ports:
-      - "8384:8384"     # WebUI
-      - "22000:22000"   # Sync traffic
-      - "21027:21027"   # Local discovery
+      - "8384:8384"        # WebUI
+      - "22000:22000"      # Sync traffic (TCP)
+      - "22000:22000/udp"  # Sync traffic (QUIC)
+      - "21027:21027/udp"  # Local discovery
     user: "1000:1000"
-    volumes: 
+    volumes:
       - ${SYNCTHING_USER_DIR}/config:/var/syncthing/config
       - ${SYNCTHING_WORKING_DIR}:/var/syncthing/
-  
+
   stirling-pdf:
     image: docker.stirlingpdf.com/stirlingtools/stirling-pdf:latest
     container_name: stirling-pdf
@@ -42,65 +48,19 @@ services:
       - ${STIRLING_DATA_DIR}:/var/configs
     restart: unless-stopped
 
-  llama-server:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-server
-    ports:
-      - "8081:8080"
-    volumes:
-      - ${LLAMA_MODELS_DIR}:/llama-setup/models
-    environment:
-      # Automatically download and run from HuggingFace if not using local volumes
-      - LLAMA_ARG_MODEL=/llama-setup/models/qwen3.5-4b-diktat-de-ch-q8_0.gguf
-      - LLAMA_ARG_N_GPU_LAYERS=20
-      - LLAMA_ARG_CTX_SIZE=16384
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-
-  llama-server-coder:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-server-coder
-    ports:
-      - "8083:8080"
-    volumes:
-      - ${LLAMA_MODELS_DIR}:/llama-setup/models
-    environment:
-      - LLAMA_ARG_MODEL=/llama-setup/models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
-      - LLAMA_ARG_N_GPU_LAYERS=99
-      - LLAMA_ARG_CTX_SIZE=12288
-      # quantized KV cache keeps a 4B model inside 4 GB of VRAM
-      - LLAMA_ARG_CACHE_TYPE_K=q8_0
-      - LLAMA_ARG_CACHE_TYPE_V=q8_0
-      # required for OpenAI-style tool calling
-      - LLAMA_ARG_JINJA=1
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-
   nextcloud-aio-mastercontainer:
-   image: ghcr.io/nextcloud-releases/all-in-one:latest
-   container_name: nextcloud-aio-mastercontainer
-   restart: always
-   ports:
-    - "80:80"
-    - "8082:8080"
-    - "8443:8443"
-   volumes:
-    - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-   environment:
-    APACHE_PORT: 11000
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    restart: always
+    ports:
+      - "80:80"
+      - "8082:8080"
+      - "8443:8443"
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      APACHE_PORT: 11000
     stop_grace_period: 30s
 
   cloudbeaver:
