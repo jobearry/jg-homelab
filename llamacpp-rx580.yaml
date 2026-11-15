@@ -1,0 +1,42 @@
+name: jg-llama-rx580
+
+# Standalone stack for the RX 580 (Polaris / gfx803, 4 GB VRAM).
+#
+# ROCm does not support gfx803 and CUDA is out of the question, so this uses the
+# Vulkan backend with Mesa RADV from the host. Run it on its own:
+#
+#   docker compose -f llamacpp-rx580.yaml up -d
+#   docker compose -f llamacpp-rx580.yaml logs -f
+#   docker compose -f llamacpp-rx580.yaml down
+
+services:
+  llama-server-rx580:
+    image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+    container_name: jg-llama-rx580
+    ports:
+      # reachable from the LAN; llama-server has no auth, so set LLAMA_API_KEY
+      # if you do not trust every device on this network
+      - "8085:8080"
+    devices:
+      # render node + card node for RADV; no nvidia runtime involved
+      - /dev/dri:/dev/dri
+    volumes:
+      - ${LLAMA_RX580_MODELS_DIR:?set LLAMA_RX580_MODELS_DIR in .env}:/models
+    environment:
+      - LLAMA_ARG_MODEL=/models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+      - LLAMA_ARG_ALIAS=qwen3-4b-instruct-2507
+      # 8k ctx with q8_0 KV keeps ~1 GiB free of the 4 GiB for the desktop.
+      # 12288 also works (3.3 GiB) but leaves very little headroom.
+      - LLAMA_ARG_CTX_SIZE=8192
+      - LLAMA_ARG_N_PARALLEL=1
+      # ubatch 128 is required: at 256 the compute buffers push VRAM to 3.6 GiB
+      # and throughput collapses from ~52 to ~9 tok/s
+      - LLAMA_ARG_UBATCH=128
+      - LLAMA_ARG_CACHE_TYPE_K=q8_0
+      - LLAMA_ARG_CACHE_TYPE_V=q8_0
+      # OpenAI-style tool calling
+      - LLAMA_ARG_JINJA=1
+      # LLAMA_ARG_N_GPU_LAYERS is intentionally unset: -1 means auto, and
+      # --fit (on by default) sizes layers/context to the free VRAM, keeping
+      # the default 1 GiB margin for the desktop compositor.
+    restart: unless-stopped
