@@ -2,6 +2,18 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "llama.cpp/qwen-local",
   "providers": {
+    "freellmapi": {
+      "package": "@opencode/ai/providers/openai-compatible",
+      "name": "FreeLLMAPI",
+      "settings": {
+        "baseURL": "http://127.0.0.1:3001/v1",
+      },
+      "models": {
+        "auto": {
+          "name": "FreeLLMAPI Auto Router"
+        }
+      }
+    },
     "llama.cpp": {
       "name": "llama.cpp (local)",
       "package": "@opencode/ai/providers/openai-compatible",

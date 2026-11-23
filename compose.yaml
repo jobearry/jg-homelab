@@ -19,7 +19,7 @@ services:
     volumes:
       - jg_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-jthan-dev} -d $${POSTGRES_DB:-jg_portfolio}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-jthan-dev} -d $${POSTGRES_DB:-jg-portfolio}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,21 +48,6 @@ services:
       - ${STIRLING_DATA_DIR}:/var/configs
     restart: unless-stopped
 
-  nextcloud-aio-mastercontainer:
-    image: ghcr.io/nextcloud-releases/all-in-one:latest
-    container_name: nextcloud-aio-mastercontainer
-    restart: always
-    ports:
-      - "80:80"
-      - "8082:8080"
-      - "8443:8443"
-    volumes:
-      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      APACHE_PORT: 11000
-    stop_grace_period: 30s
-
   cloudbeaver:
     image: dbeaver/cloudbeaver:latest
     container_name: cloudbeaver
@@ -71,8 +56,36 @@ services:
     volumes:
       - cloudbeaver_data:/opt/cloudbeaver/workspace
 
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:latest
+    container_name: freellmapi
+
+    env_file:
+      - .env
+
+    ports:
+      - "${HOST_BIND:-127.0.0.1}:${PORT:-3001}:3001"
+
+    volumes:
+      - freellmapi-data:/app/server/data
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/api/ping').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
 volumes:
-  nextcloud_aio_mastercontainer:
-    name: nextcloud_aio_mastercontainer
   jg_pgdata:
   cloudbeaver_data:
+  freellmapi-data:
